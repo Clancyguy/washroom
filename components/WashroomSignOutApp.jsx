@@ -8,24 +8,25 @@ import { Textarea } from '../components/ui/textarea';
 
 export default function WashroomSignOutApp() {
   const [students, setStudents] = useState([]);
-  const [name, setName] = useState("");
   const [adminMode, setAdminMode] = useState(false);
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState('');
   const [studentList, setStudentList] = useState([]);
-  const [rawList, setRawList] = useState("");
+  const [rawList, setRawList] = useState('');
   const [savedLogs, setSavedLogs] = useState([]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedStudents = localStorage.getItem('students');
       const savedStudentList = localStorage.getItem('studentList');
+
       setStudents(savedStudents ? JSON.parse(savedStudents) : []);
       setStudentList(savedStudentList ? JSON.parse(savedStudentList) : []);
 
       const logs = Object.keys(localStorage)
-        .filter(key => key.startsWith('log-'))
-        .map(key => ({ key, date: key.replace('log-', '') }))
+        .filter(k => k.startsWith('log-'))
+        .map(k => ({ key: k, date: k.replace('log-', '') }))
         .sort((a, b) => b.date.localeCompare(a.date));
+
       setSavedLogs(logs);
     }
   }, []);
@@ -42,120 +43,137 @@ export default function WashroomSignOutApp() {
     }
   }, [studentList]);
 
-  const handleSignOut = (selectedName) => {
-    const timestamp = new Date().toISOString();
-    const updatedList = [{ name: selectedName, status: 'out', time: timestamp }, ...students];
-    setStudents(updatedList);
+  const handleSignOut = (name) => {
+    const entry = {
+      name,
+      status: 'out',
+      time: new Date().toISOString(),
+    };
+    setStudents([entry, ...students]);
   };
 
   const handleSignIn = (index) => {
-    const updatedList = [...students];
-    updatedList[index].status = 'in';
-    updatedList[index].time = new Date().toISOString();
-    setStudents(updatedList);
+    const updated = [...students];
+    updated[index].status = 'in';
+    updated[index].time = new Date().toISOString();
+    setStudents(updated);
   };
 
   const handleClear = () => {
     setStudents([]);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('students');
-    }
+    localStorage.removeItem('students');
   };
 
   const handleExportCSV = () => {
-    const headers = ['Name', 'Status', 'Time'];
-    const rows = students.map(s => [s.name, s.status, new Date(s.time).toLocaleString()]);
-    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
+    const rows = students.map(s => [
+      s.name,
+      s.status,
+      new Date(s.time).toLocaleString()
+    ]);
+    const csv = [['Name', 'Status', 'Time'], ...rows]
+      .map(r => r.join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", "washroom_signout_log.csv");
-    document.body.appendChild(link);
+    link.download = 'washroom_log.csv';
     link.click();
-    document.body.removeChild(link);
   };
 
   const handleSaveDayLog = () => {
     const today = new Date().toISOString().split('T')[0];
-    const key = `log-${today}`;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(key, JSON.stringify(students));
-      alert("Today's log has been saved!");
-      const newLogs = [...savedLogs, { key, date: today }];
-      setSavedLogs(newLogs);
-    }
+    localStorage.setItem(`log-${today}`, JSON.stringify(students));
+    alert("Today's log saved");
   };
 
   const handleLoadLog = (key) => {
-    if (typeof window !== 'undefined') {
-      const savedData = localStorage.getItem(key);
-      if (savedData) {
-        setStudents(JSON.parse(savedData));
-      }
-    }
+    const data = localStorage.getItem(key);
+    if (data) setStudents(JSON.parse(data));
   };
 
   const handleSaveStudentList = () => {
-    const list = rawList.split("\n").map(n => n.trim()).filter(Boolean);
+    const list = rawList.split('\n').map(n => n.trim()).filter(Boolean);
     setStudentList(list);
-    setRawList("");
+    setRawList('');
   };
 
-  const getTimeElapsed = (timestamp) => {
-    const diff = Date.now() - new Date(timestamp).getTime();
-    const minutes = Math.floor(diff / 60000);
-    const seconds = Math.floor((diff % 60000) / 1000);
-    return `${minutes}m ${seconds}s`;
+  const getElapsed = (time) => {
+    const diff = Date.now() - new Date(time).getTime();
+    const mins = Math.floor(diff / 60000);
+    return `${mins} min`;
   };
 
   return (
-    <div className="fixed inset-0 p-4 sm:p-6 max-w-4xl mx-auto overflow-auto bg-gray-50">
-      <h1 className="text-3xl sm:text-4xl font-bold mb-6 text-center">Washroom Sign Out</h1>
+    <div className="min-h-screen bg-gray-100 p-4 max-w-4xl mx-auto">
 
+      <h1 className="text-4xl font-bold text-center mb-6">
+        Washroom Sign Out
+      </h1>
+
+      {/* STUDENT KIOSK BUTTONS */}
       {!adminMode && studentList.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
-          {studentList.map((student, idx) => (
-            <Button className="py-4 text-lg" key={idx} onClick={() => handleSignOut(student)}>{student}</Button>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+          {studentList.map((student, i) => (
+            <Button
+              key={i}
+              onClick={() => handleSignOut(student)}
+              className="py-10 text-3xl rounded-2xl"
+            >
+              {student}
+            </Button>
           ))}
         </div>
       )}
 
-      {!adminMode && studentList.length === 0 && (
-        <div className="mb-6 text-red-500 text-center text-lg">No student list loaded. Please ask the teacher to enter names.</div>
-      )}
-
       {!adminMode && (
-        <div className="flex flex-col sm:flex-row gap-4 mb-6 justify-center items-center">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
           <Input
             type="password"
             placeholder="Teacher Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full sm:w-auto"
+            className="text-xl p-4"
           />
-          <Button className="px-6 py-3 text-base" onClick={() => {
-            if (password === "admin123") setAdminMode(true);
-          }}>Enter Admin Mode</Button>
+          <Button
+            className="px-8 py-4 text-xl"
+            onClick={() => password === 'admin123' && setAdminMode(true)}
+          >
+            Admin Mode
+          </Button>
         </div>
       )}
 
+      {/* ADMIN PANEL */}
       {adminMode && (
-        <div className="mb-6">
+        <div className="mb-10">
           <Textarea
             placeholder="Enter student names, one per line"
             value={rawList}
             onChange={(e) => setRawList(e.target.value)}
-            className="mb-3 min-h-[120px]"
+            className="text-lg min-h-[140px] mb-4"
           />
-          <div className="flex flex-wrap gap-2 mb-3">
-            <Button onClick={handleSaveStudentList}>Save Student List</Button>
-            <Button variant="destructive" onClick={handleClear}>Clear All</Button>
-            <Button onClick={handleExportCSV}>Export CSV</Button>
-            <Button onClick={handleSaveDayLog}>Save Today's Log</Button>
-            <Button onClick={() => setAdminMode(false)}>Exit Admin Mode</Button>
+
+          <div className="flex flex-wrap gap-3">
+            <Button className="px-6 py-4 text-lg" onClick={handleSaveStudentList}>
+              Save Student List
+            </Button>
+            <Button className="px-6 py-4 text-lg" onClick={handleExportCSV}>
+              Export CSV
+            </Button>
+            <Button className="px-6 py-4 text-lg" onClick={handleSaveDayLog}>
+              Save Today
+            </Button>
+            <Button className="px-6 py-4 text-lg" onClick={handleClear}>
+              Clear
+            </Button>
+            <Button className="px-6 py-4 text-lg" onClick={() => setAdminMode(false)}>
+              Exit Admin
+            </Button>
           </div>
-          <div className="mt-4">
-            <h2 className="text-lg font-semibold mb-2">Saved Logs</h2>
+
+          <div className="mt-6">
+            <h2 className="font-semibold mb-2">Saved Logs</h2>
             <div className="flex flex-wrap gap-2">
               {savedLogs.map(log => (
                 <Button key={log.key} onClick={() => handleLoadLog(log.key)}>
@@ -167,27 +185,35 @@ export default function WashroomSignOutApp() {
         </div>
       )}
 
-      <div className="grid gap-4">
-        {students.map((student, index) => (
-          <Card key={index} className="bg-white shadow rounded-2xl p-4">
-            <CardContent className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+      {/* ACTIVE LOG */}
+      <div className="space-y-4">
+        {students.map((s, i) => (
+          <Card key={i} className="rounded-2xl shadow">
+            <CardContent className="flex justify-between items-center p-6">
               <div>
-                <p className="font-medium text-lg">{student.name}</p>
-                <p className="text-sm text-gray-500">
-                  {student.status === 'out' ? 'Signed out at' : 'Signed in at'}{' '}
-                  {new Date(student.time).toLocaleTimeString()}
+                <p className="text-2xl font-semibold">{s.name}</p>
+                <p className="text-gray-500">
+                  {s.status === 'out' ? 'Out' : 'In'} at{' '}
+                  {new Date(s.time).toLocaleTimeString()}
                 </p>
-                {student.status === 'out' && (
-                  <p className="text-xs text-blue-500">Out for {getTimeElapsed(student.time)}</p>
+                {s.status === 'out' && (
+                  <p className="text-blue-600">Out for {getElapsed(s.time)}</p>
                 )}
               </div>
-              {student.status === 'out' && (
-                <Button className="mt-2 sm:mt-0" onClick={() => handleSignIn(index)}>Sign In</Button>
+
+              {s.status === 'out' && (
+                <Button
+                  onClick={() => handleSignIn(i)}
+                  className="px-10 py-6 text-2xl rounded-xl"
+                >
+                  SIGN IN
+                </Button>
               )}
             </CardContent>
           </Card>
         ))}
       </div>
+
     </div>
   );
 }
