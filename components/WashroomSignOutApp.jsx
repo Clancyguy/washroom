@@ -1,219 +1,137 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Textarea } from '../components/ui/textarea';
 
 export default function WashroomSignOutApp() {
   const [students, setStudents] = useState([]);
+  const [studentList, setStudentList] = useState([]);
   const [adminMode, setAdminMode] = useState(false);
   const [password, setPassword] = useState('');
-  const [studentList, setStudentList] = useState([]);
   const [rawList, setRawList] = useState('');
-  const [savedLogs, setSavedLogs] = useState([]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedStudents = localStorage.getItem('students');
-      const savedStudentList = localStorage.getItem('studentList');
-
-      setStudents(savedStudents ? JSON.parse(savedStudents) : []);
-      setStudentList(savedStudentList ? JSON.parse(savedStudentList) : []);
-
-      const logs = Object.keys(localStorage)
-        .filter(k => k.startsWith('log-'))
-        .map(k => ({ key: k, date: k.replace('log-', '') }))
-        .sort((a, b) => b.date.localeCompare(a.date));
-
-      setSavedLogs(logs);
-    }
+    const savedStudents = localStorage.getItem('students');
+    const savedList = localStorage.getItem('studentList');
+    setStudents(savedStudents ? JSON.parse(savedStudents) : []);
+    setStudentList(savedList ? JSON.parse(savedList) : []);
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('students', JSON.stringify(students));
-    }
+    localStorage.setItem('students', JSON.stringify(students));
   }, [students]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('studentList', JSON.stringify(studentList));
-    }
+    localStorage.setItem('studentList', JSON.stringify(studentList));
   }, [studentList]);
 
-  const handleSignOut = (name) => {
-    const entry = {
-      name,
-      status: 'out',
-      time: new Date().toISOString(),
-    };
-    setStudents([entry, ...students]);
+  const signOut = (name) => {
+    setStudents([
+      { name, status: 'out', time: new Date().toISOString() },
+      ...students,
+    ]);
   };
 
-  const handleSignIn = (index) => {
+  const signIn = (index) => {
     const updated = [...students];
     updated[index].status = 'in';
     updated[index].time = new Date().toISOString();
     setStudents(updated);
   };
 
-  const handleClear = () => {
-    setStudents([]);
-    localStorage.removeItem('students');
-  };
-
-  const handleExportCSV = () => {
-    const rows = students.map(s => [
-      s.name,
-      s.status,
-      new Date(s.time).toLocaleString()
-    ]);
-    const csv = [['Name', 'Status', 'Time'], ...rows]
-      .map(r => r.join(','))
-      .join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'washroom_log.csv';
-    link.click();
-  };
-
-  const handleSaveDayLog = () => {
-    const today = new Date().toISOString().split('T')[0];
-    localStorage.setItem(`log-${today}`, JSON.stringify(students));
-    alert("Today's log saved");
-  };
-
-  const handleLoadLog = (key) => {
-    const data = localStorage.getItem(key);
-    if (data) setStudents(JSON.parse(data));
-  };
-
-  const handleSaveStudentList = () => {
-    const list = rawList.split('\n').map(n => n.trim()).filter(Boolean);
+  const saveStudentList = () => {
+    const list = rawList
+      .split('\n')
+      .map(n => n.trim())
+      .filter(Boolean);
     setStudentList(list);
     setRawList('');
   };
 
-  const getElapsed = (time) => {
-    const diff = Date.now() - new Date(time).getTime();
-    const mins = Math.floor(diff / 60000);
-    return `${mins} min`;
-  };
-
   return (
-    <div className="min-h-screen bg-gray-100 p-4 max-w-4xl mx-auto">
+    <div className="fixed inset-0 bg-gray-100 p-4 flex flex-col">
 
-      <h1 className="text-4xl font-bold text-center mb-6">
+      {/* TITLE */}
+      <h1 className="text-4xl font-bold text-center mb-4">
         Washroom Sign Out
       </h1>
 
-      {/* STUDENT KIOSK BUTTONS */}
-      {!adminMode && studentList.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
-          {studentList.map((student, i) => (
+      {/* STUDENT BUTTONS (PRIMARY UI) */}
+      {!adminMode && (
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          {studentList.map((name, i) => (
             <Button
               key={i}
-              onClick={() => handleSignOut(student)}
-              className="py-10 text-3xl rounded-2xl"
+              onClick={() => signOut(name)}
+              className="h-28 text-3xl font-bold rounded-2xl"
             >
-              {student}
+              {name}
             </Button>
           ))}
         </div>
       )}
 
+      {/* ADMIN ACCESS */}
       {!adminMode && (
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-          <Input
+        <div className="flex gap-2 justify-center mb-3">
+          <input
             type="password"
-            placeholder="Teacher Password"
+            placeholder="Admin password"
+            className="border p-2 rounded"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="text-xl p-4"
           />
           <Button
-            className="px-8 py-4 text-xl"
             onClick={() => password === 'admin123' && setAdminMode(true)}
           >
-            Admin Mode
+            Admin
           </Button>
         </div>
       )}
 
       {/* ADMIN PANEL */}
       {adminMode && (
-        <div className="mb-10">
-          <Textarea
-            placeholder="Enter student names, one per line"
+        <div className="mb-4">
+          <textarea
+            className="w-full border p-2 mb-2"
+            rows={5}
+            placeholder="One student name per line"
             value={rawList}
             onChange={(e) => setRawList(e.target.value)}
-            className="text-lg min-h-[140px] mb-4"
           />
-
-          <div className="flex flex-wrap gap-3">
-            <Button className="px-6 py-4 text-lg" onClick={handleSaveStudentList}>
-              Save Student List
-            </Button>
-            <Button className="px-6 py-4 text-lg" onClick={handleExportCSV}>
-              Export CSV
-            </Button>
-            <Button className="px-6 py-4 text-lg" onClick={handleSaveDayLog}>
-              Save Today
-            </Button>
-            <Button className="px-6 py-4 text-lg" onClick={handleClear}>
-              Clear
-            </Button>
-            <Button className="px-6 py-4 text-lg" onClick={() => setAdminMode(false)}>
-              Exit Admin
-            </Button>
-          </div>
-
-          <div className="mt-6">
-            <h2 className="font-semibold mb-2">Saved Logs</h2>
-            <div className="flex flex-wrap gap-2">
-              {savedLogs.map(log => (
-                <Button key={log.key} onClick={() => handleLoadLog(log.key)}>
-                  {log.date}
-                </Button>
-              ))}
-            </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={saveStudentList}>Save Names</Button>
+            <Button onClick={() => setStudents([])}>Clear Log</Button>
+            <Button onClick={() => setAdminMode(false)}>Exit Admin</Button>
           </div>
         </div>
       )}
 
-      {/* ACTIVE LOG */}
-      <div className="space-y-4">
-        {students.map((s, i) => (
-          <Card key={i} className="rounded-2xl shadow">
-            <CardContent className="flex justify-between items-center p-6">
-              <div>
-                <p className="text-2xl font-semibold">{s.name}</p>
-                <p className="text-gray-500">
-                  {s.status === 'out' ? 'Out' : 'In'} at{' '}
-                  {new Date(s.time).toLocaleTimeString()}
-                </p>
-                {s.status === 'out' && (
-                  <p className="text-blue-600">Out for {getElapsed(s.time)}</p>
-                )}
-              </div>
-
-              {s.status === 'out' && (
-                <Button
-                  onClick={() => handleSignIn(i)}
-                  className="px-10 py-6 text-2xl rounded-xl"
-                >
-                  SIGN IN
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+      {/* COMPACT RUNNING LOG */}
+      <div className="flex-1 overflow-auto border-t pt-2">
+        {students.slice(0, 8).map((s, i) => (
+          <div
+            key={i}
+            className="flex justify-between items-center text-lg py-1 border-b"
+          >
+            <div>
+              <strong>{s.name}</strong>{' '}
+              <span className="text-gray-500">
+                {s.status === 'out' ? 'OUT' : 'IN'} ·{' '}
+                {new Date(s.time).toLocaleTimeString()}
+              </span>
+            </div>
+            {s.status === 'out' && (
+              <Button
+                onClick={() => signIn(i)}
+                className="px-6 py-3 text-xl"
+              >
+                SIGN IN
+              </Button>
+            )}
+          </div>
         ))}
       </div>
-
     </div>
   );
 }
